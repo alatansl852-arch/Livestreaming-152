@@ -1,102 +1,294 @@
-import { useRoute } from "wouter";
-import StreamPlayer from "@/components/StreamPlayer";
-import Chat from "@/components/Chat";
-import RatingButtons from "@/components/RatingButtons";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useState, useEffect } from "react";
+import { useRoute, useLocation } from "wouter";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import SubscribeButton from "@/components/SubscribeButton";
-import gamingThumb from '@assets/generated_images/Gaming_stream_thumbnail_09f29da0.png';
-
-//todo: remove mock functionality
-const mockStreamData = {
-  id: "1",
-  thumbnailUrl: gamingThumb,
-  isLive: true,
-  viewerCount: 12470,
-  streamerName: "ProGamer123",
-  streamerId: "streamer1",
-  streamTitle: "Ranked Gameplay - Road to Champion!",
-  category: "Gaming",
-  description: "Join me as I climb the ranked ladder! We're aiming for Champion tier today. Thanks for all your support!",
-  likes: 1247,
-  dislikes: 23,
-};
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { ThumbsUp, ThumbsDown, Users, Send } from "lucide-react";
+import type { Stream, Comment } from "@shared/schema";
 
 export default function StreamPage() {
   const [, params] = useRoute("/stream/:id");
-  const streamId = params?.id || "1";
+  const [, setLocation] = useLocation();
+  const { user, isAuthenticated } = useAuth();
+  const [stream, setStream] = useState<Stream | null>(null);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [newComment, setNewComment] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [userRatingType, setUserRatingType] = useState<"like" | "dislike" | null>(null);
+
+  useEffect(() => {
+    if (params?.id) {
+      fetchStream();
+      fetchComments();
+      incrementViewCount();
+      if (user) {
+        checkRatingStatus();
+      }
+    }
+  }, [params?.id, user]);
+
+  const checkRatingStatus = async () => {
+    if (!user) return;
+
+    try {
+      const response = await fetch(
+        `/api/streams/${params!.id}/rating-status?userId=${user.id}`
+      );
+      const data = await response.json();
+      setUserRatingType(data.ratingType);
+    } catch (err) {
+      console.error("Error checking rating status:", err);
+    }
+  };
+
+  const incrementViewCount = async () => {
+    try {
+      await fetch(`/api/streams/${params!.id}/view`, { method: "POST" });
+    } catch (err) {
+      console.error("Error incrementing view count:", err);
+    }
+  };
+
+  const fetchStream = async () => {
+    try {
+      const response = await fetch(`/api/streams/${params!.id}`);
+      if (!response.ok) throw new Error("Stream not found");
+      const data = await response.json();
+      setStream(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load stream");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchComments = async () => {
+    try {
+      const response = await fetch(`/api/streams/${params!.id}/comments`);
+      if (!response.ok) throw new Error("Failed to fetch comments");
+      const data = await response.json();
+      setComments(data);
+    } catch (err) {
+      console.error("Error fetching comments:", err);
+    }
+  };
+
+  const handleLike = async () => {
+    if (!user) {
+      alert("Please login to rate streams");
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/streams/${params!.id}/like`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user.id }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        alert(data.message);
+        return;
+      }
+
+      await fetchStream();
+      await checkRatingStatus();
+    } catch (err) {
+      console.error("Error liking stream:", err);
+    }
+  };
+
+  const handleDislike = async () => {
+    if (!user) {
+      alert("Please login to rate streams");
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/streams/${params!.id}/dislike`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user.id }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        alert(data.message);
+        return;
+      }
+
+      await fetchStream();
+      await checkRatingStatus();
+    } catch (err) {
+      console.error("Error disliking stream:", err);
+    }
+  };
+
+  const handlePostComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newComment.trim() || !user) return;
+
+    try {
+      const response = await fetch(`/api/streams/${params!.id}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: user.id,
+          username: user.username,
+          message: newComment,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to post comment");
+
+      setNewComment("");
+      fetchComments();
+    } catch (err) {
+      console.error("Error posting comment:", err);
+    }
+  };
+
+  const handleStreamerClick = () => {
+    if (stream) {
+      setLocation(`/streamer/${stream.userId}`);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <p className="text-lg text-muted-foreground">Loading stream...</p>
+      </div>
+    );
+  }
+
+  if (error || !stream) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <p className="text-lg text-destructive">{error || "Stream not found"}</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
-      <div className="flex flex-1 flex-col overflow-y-auto">
-        <div className="p-6">
-          <div className="space-y-4">
-            <StreamPlayer thumbnailUrl={mockStreamData.thumbnailUrl} isLive={mockStreamData.isLive} />
+    <div className="grid h-full grid-cols-1 gap-4 p-4 lg:grid-cols-3">
+      {/* MAIN STREAM AREA */}
+      <div className="lg:col-span-2 space-y-4">
+        <div className="relative aspect-video w-full rounded-lg bg-black overflow-hidden">
+          <img src={stream.thumbnailUrl} alt={stream.streamTitle} className="w-full h-full object-cover" />
+          {stream.isLive && (
+            <div className="absolute top-4 left-4 bg-red-600 text-white px-3 py-1 rounded font-semibold">
+              LIVE
+            </div>
+          )}
+        </div>
 
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="flex-1">
-                <h1 className="text-2xl font-bold" data-testid="text-stream-title">
-                  {mockStreamData.streamTitle}
-                </h1>
-                <div className="mt-2 flex items-center gap-3">
-                  <Badge variant={mockStreamData.isLive ? "destructive" : "secondary"}>
-                    {mockStreamData.isLive ? "LIVE" : "OFFLINE"}
-                  </Badge>
-                  <Badge variant="secondary">{mockStreamData.category}</Badge>
-                  <span className="text-sm text-muted-foreground" data-testid="text-viewer-count">
-                    {mockStreamData.viewerCount.toLocaleString()} viewers
-                  </span>
+        <div className="space-y-4">
+          <h1 className="text-2xl font-bold">{stream.streamTitle}</h1>
+          <p className="text-muted-foreground">{stream.category}</p>
+
+          {stream.description && <p className="text-sm">{stream.description}</p>}
+
+          <div className="flex items-center justify-between">
+            <div
+              className="flex items-center gap-3 cursor-pointer hover:opacity-80"
+              onClick={handleStreamerClick}
+            >
+              <Avatar>
+                <AvatarFallback>{stream.streamerName[0].toUpperCase()}</AvatarFallback>
+              </Avatar>
+              <div>
+                <p className="font-semibold">{stream.streamerName}</p>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Users className="h-4 w-4" />
+                  <span>{stream.viewerCount.toLocaleString()} viewers</span>
                 </div>
               </div>
-              <RatingButtons 
-                initialLikes={mockStreamData.likes} 
-                initialDislikes={mockStreamData.dislikes} 
-                streamId={streamId}
-              />
             </div>
 
-            <Card className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage src="" />
-                    <AvatarFallback>{mockStreamData.streamerName[0]}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <h3 className="font-semibold">{mockStreamData.streamerName}</h3>
-                    <p className="text-sm text-muted-foreground">Content Creator</p>
-                  </div>
-                </div>
-                <SubscribeButton streamerId={mockStreamData.streamerId} />
-              </div>
-            </Card>
+            {/* LIKE / DISLIKE */}
+            <div className="flex gap-2">
+              <Button
+                variant={userRatingType === "like" ? "default" : "outline"}
+                size="sm"
+                onClick={handleLike}
+                disabled={!isAuthenticated}
+              >
+                <ThumbsUp className="h-4 w-4 mr-1" /> {stream.likes}
+              </Button>
 
-            <Tabs defaultValue="about" className="w-full">
-              <TabsList>
-                <TabsTrigger value="about" data-testid="tab-about">About</TabsTrigger>
-                <TabsTrigger value="chat" data-testid="tab-chat">Chat Replay</TabsTrigger>
-              </TabsList>
-              <TabsContent value="about" className="space-y-4">
-                <Card className="p-4">
-                  <h3 className="mb-2 font-semibold">Stream Description</h3>
-                  <p className="text-muted-foreground">{mockStreamData.description}</p>
-                </Card>
-              </TabsContent>
-              <TabsContent value="chat">
-                <Card className="p-4">
-                  <p className="text-muted-foreground">Chat replay for this stream</p>
-                </Card>
-              </TabsContent>
-            </Tabs>
+              <Button
+                variant={userRatingType === "dislike" ? "default" : "outline"}
+                size="sm"
+                onClick={handleDislike}
+                disabled={!isAuthenticated}
+              >
+                <ThumbsDown className="h-4 w-4 mr-1" /> {stream.dislikes}
+              </Button>
+            </div>
           </div>
+
+          {!isAuthenticated && (
+            <p className="text-sm text-muted-foreground">Login to rate this stream</p>
+          )}
         </div>
       </div>
 
-      <div className="hidden h-full w-96 lg:block">
-        <Chat />
-      </div>
+      {/* CHAT SECTION */}
+      <Card className="flex h-[calc(100vh-8rem)] flex-col lg:col-span-1">
+        <div className="border-b p-4">
+          <h2 className="font-semibold">Live Chat</h2>
+        </div>
+
+        <ScrollArea className="flex-1 p-4">
+          <div className="space-y-4">
+            {comments.map((comment) => (
+              <div key={comment.id} className="space-y-1">
+                <div className="flex items-start gap-2">
+                  <Avatar className="h-6 w-6">
+                    <AvatarFallback className="text-xs">
+                      {comment.username[0].toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="text-sm font-semibold">{comment.username}</p>
+                    <p className="text-sm break-words">{comment.message}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {comments.length === 0 && (
+              <p className="text-center text-sm text-muted-foreground">No comments yet.</p>
+            )}
+          </div>
+        </ScrollArea>
+
+        {isAuthenticated ? (
+          <form onSubmit={handlePostComment} className="border-t p-4">
+            <div className="flex gap-2">
+              <Input
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                placeholder="Send a message..."
+                className="flex-1"
+              />
+              <Button type="submit" size="icon" disabled={!newComment.trim()}>
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+          </form>
+        ) : (
+          <div className="border-t p-4 text-center text-sm text-muted-foreground">
+            Login to chat
+          </div>
+        )}
+      </Card>
     </div>
   );
 }

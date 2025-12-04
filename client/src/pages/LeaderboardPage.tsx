@@ -1,44 +1,105 @@
-import LeaderboardTable from "@/components/LeaderboardTable";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-//todo: remove mock functionality
-const mockLeaderboard = [
-  { rank: 1, streamerId: "1", name: "ProGamer123", category: "Gaming", totalViews: 1247890, ratingScore: 9.5, subscribers: 45200 },
-  { rank: 2, streamerId: "2", name: "FitnessGuru", category: "Health", totalViews: 987654, ratingScore: 9.3, subscribers: 38500 },
-  { rank: 3, streamerId: "3", name: "TechTeacher", category: "Academe", totalViews: 856432, ratingScore: 9.1, subscribers: 32100 },
-  { rank: 4, streamerId: "4", name: "ArtistPro", category: "Creative", totalViews: 745123, ratingScore: 8.9, subscribers: 28900 },
-  { rank: 5, streamerId: "5", name: "PodcastKing", category: "Social Talk", totalViews: 698456, ratingScore: 8.7, subscribers: 25600 },
-  { rank: 6, streamerId: "6", name: "MusicMaestro", category: "Music", totalViews: 654321, ratingScore: 8.5, subscribers: 23400 },
-  { rank: 7, streamerId: "7", name: "SpeedRunner99", category: "Gaming", totalViews: 612345, ratingScore: 8.3, subscribers: 21200 },
-  { rank: 8, streamerId: "8", name: "NutritionExpert", category: "Health", totalViews: 589012, ratingScore: 8.1, subscribers: 19800 },
-  { rank: 9, streamerId: "9", name: "CodeMaster", category: "Academe", totalViews: 567890, ratingScore: 7.9, subscribers: 18500 },
-  { rank: 10, streamerId: "10", name: "VloggerDaily", category: "Social Talk", totalViews: 543210, ratingScore: 7.7, subscribers: 17100 },
-];
+// src/pages/LeaderboardPage.tsx
+import { useState, useEffect } from "react";
+import { Link } from "wouter";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Trophy, Users, TrendingUp } from "lucide-react";
+import type { User } from "@shared/schema";
 
 export default function LeaderboardPage() {
+  const [streamers, setStreamers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchLeaderboard();
+  }, []);
+
+  const fetchLeaderboard = async () => {
+    try {
+      const response = await fetch("/api/leaderboard");
+      if (!response.ok) throw new Error("Failed to fetch leaderboard");
+      const data = await response.json();
+      setStreamers(data);
+    } catch (error) {
+      console.error("Error fetching leaderboard:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getRankIcon = (index: number) => {
+    if (index === 0) return "🥇";
+    if (index === 1) return "🥈";
+    if (index === 2) return "🥉";
+    return `#${index + 1}`;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex h-full items-center justify-center p-6">
+        <p className="text-lg text-muted-foreground">Loading leaderboard...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 p-6">
       <div>
-        <h1 className="text-3xl font-bold">Streamer Leaderboard</h1>
-        <p className="text-muted-foreground">Top streamers ranked by performance and popularity</p>
+        <h1 className="text-3xl font-bold">Leaderboard</h1>
+        <p className="text-muted-foreground">Top streamers ranked by reputation</p>
       </div>
 
-      <Tabs defaultValue="overall" className="w-full">
-        <TabsList>
-          <TabsTrigger value="overall" data-testid="tab-overall">Overall</TabsTrigger>
-          <TabsTrigger value="weekly" data-testid="tab-weekly">This Week</TabsTrigger>
-          <TabsTrigger value="monthly" data-testid="tab-monthly">This Month</TabsTrigger>
-        </TabsList>
-        <TabsContent value="overall" className="mt-6">
-          <LeaderboardTable entries={mockLeaderboard} />
-        </TabsContent>
-        <TabsContent value="weekly" className="mt-6">
-          <LeaderboardTable entries={mockLeaderboard.slice(0, 5)} />
-        </TabsContent>
-        <TabsContent value="monthly" className="mt-6">
-          <LeaderboardTable entries={mockLeaderboard.slice(0, 8)} />
-        </TabsContent>
-      </Tabs>
+      <div className="grid gap-4">
+        {streamers.map((streamer, index) => (
+          <Link key={streamer.id} href={`/streamer/${streamer.id}`}>
+            <Card className="cursor-pointer transition-colors hover:bg-accent">
+              <CardContent className="flex items-center gap-4 p-6">
+                {/* Rank */}
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-2xl font-bold">
+                  {getRankIcon(index)}
+                </div>
+
+                {/* Avatar & Info */}
+                <div className="flex flex-1 items-center gap-4">
+                  <Avatar className="h-12 w-12">
+                    <AvatarFallback>
+                      {streamer.username[0].toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  
+                  <div className="flex-1">
+                    <h3 className="font-semibold">{streamer.username}</h3>
+                    <div className="flex gap-4 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <Users className="h-4 w-4" />
+                        <span>{streamer.totalSubscribers.toLocaleString()} subscribers</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Reputation Score */}
+                <div className="flex items-center gap-2 rounded-lg bg-primary/10 px-4 py-2">
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                  <div className="text-right">
+                    <p className="text-xs text-muted-foreground">Reputation</p>
+                    <p className="text-lg font-bold">{streamer.reputation.toLocaleString()}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
+
+        {streamers.length === 0 && (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <Trophy className="mb-4 h-12 w-12 text-muted-foreground" />
+              <p className="text-lg text-muted-foreground">No streamers found</p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   );
-}
+} 

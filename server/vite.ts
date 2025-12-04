@@ -2,7 +2,7 @@ import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
 import { createServer as createViteServer, createLogger } from "vite";
-import { type Server } from "http";
+import { type Server } from "https";
 import viteConfig from "../vite.config";
 import { nanoid } from "nanoid";
 
@@ -59,7 +59,7 @@ export async function setupVite(app: Express, server: Server) {
         `src="/src/main.tsx?v=${nanoid()}"`,
       );
       const page = await vite.transformIndexHtml(url, template);
-      res.status(200).set({ "Content-Type": "text/html" }).end(page);
+      res.status(200).set({ "Content-Type": "text/html" }).send(page);
     } catch (e) {
       vite.ssrFixStacktrace(e as Error);
       next(e);

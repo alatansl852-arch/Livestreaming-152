@@ -1,25 +1,11 @@
-import { useState } from "react";
+// src/pages/HomePage.tsx - UPDATED
+import { useState, useEffect } from "react";
+import { useAuth } from "@/hooks/useAuth";
 import StreamCard from "@/components/StreamCard";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import gamingThumb from '@assets/generated_images/Gaming_stream_thumbnail_09f29da0.png';
-import healthThumb from '@assets/generated_images/Health_fitness_stream_thumbnail_2a0f7b09.png';
-import academicThumb from '@assets/generated_images/Academic_education_stream_thumbnail_5d5b7405.png';
-import socialThumb from '@assets/generated_images/Social_talk_stream_thumbnail_0417e73c.png';
-import creativeThumb from '@assets/generated_images/Creative_art_stream_thumbnail_e197751c.png';
-import musicThumb from '@assets/generated_images/Music_production_stream_thumbnail_fb5e3c3d.png';
-
-//todo: remove mock functionality
-const mockStreams = [
-  { id: "1", thumbnailUrl: gamingThumb, isLive: true, viewerCount: 12470, streamerName: "ProGamer123", streamTitle: "Ranked Gameplay - Road to Champion!", category: "Gaming" },
-  { id: "2", thumbnailUrl: healthThumb, isLive: true, viewerCount: 8934, streamerName: "FitnessGuru", streamTitle: "Morning Yoga & Meditation Session", category: "Health" },
-  { id: "3", thumbnailUrl: academicThumb, isLive: true, viewerCount: 5621, streamerName: "TechTeacher", streamTitle: "Introduction to Quantum Computing", category: "Academe" },
-  { id: "4", thumbnailUrl: socialThumb, isLive: true, viewerCount: 4892, streamerName: "PodcastKing", streamTitle: "Deep Conversations About Life", category: "Social Talk" },
-  { id: "5", thumbnailUrl: creativeThumb, isLive: false, viewerCount: 3245, streamerName: "ArtistPro", streamTitle: "Digital Art Speed Drawing", category: "Creative" },
-  { id: "6", thumbnailUrl: musicThumb, isLive: true, viewerCount: 6789, streamerName: "MusicMaestro", streamTitle: "Live Music Production Session", category: "Music" },
-  { id: "7", thumbnailUrl: gamingThumb, isLive: true, viewerCount: 2134, streamerName: "SpeedRunner99", streamTitle: "World Record Attempt - Any%", category: "Gaming" },
-  { id: "8", thumbnailUrl: healthThumb, isLive: false, viewerCount: 1456, streamerName: "NutritionExpert", streamTitle: "Healthy Meal Prep Tips", category: "Health" },
-];
+import { Card } from "@/components/ui/card";
+import { Flame } from "lucide-react";
+import type { Stream } from "@shared/schema";
 
 const categories = [
   "All",
@@ -32,43 +18,133 @@ const categories = [
 ];
 
 export default function HomePage() {
+  const { user, isAuthenticated } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const [streams, setStreams] = useState<Stream[]>([]);
+  const [trendingStreams, setTrendingStreams] = useState<Stream[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredStreams = selectedCategory === "All" 
-    ? mockStreams 
-    : mockStreams.filter(s => s.category === selectedCategory);
+  useEffect(() => {
+    fetchStreams();
+    fetchTrendingStreams();
+  }, [selectedCategory]);
+
+  const fetchStreams = async () => {
+    setLoading(true);
+    try {
+      const url = selectedCategory === "All" 
+        ? "/api/streams" 
+        : `/api/streams/category/${selectedCategory}`;
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      setStreams(data);
+    } catch (error) {
+      console.error("Error fetching streams:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchTrendingStreams = async () => {
+    try {
+      const response = await fetch("/api/streams/trending");
+      const data = await response.json();
+      setTrendingStreams(data);
+    } catch (error) {
+      console.error("Error fetching trending streams:", error);
+    }
+  };
 
   return (
     <div className="space-y-6 p-6">
+      {/* Welcome Section */}
       <div>
-        <h1 className="text-3xl font-bold">Live Streams</h1>
-        <p className="text-muted-foreground">Discover amazing content creators streaming now</p>
+        <h1 className="text-3xl font-bold">
+          {isAuthenticated ? `Welcome back, ${user?.username}!` : "Welcome to Gosu"}
+        </h1>
+        <p className="text-muted-foreground">
+          {isAuthenticated && user?.isStreamer
+            ? "Ready to go live? Head to your dashboard to start streaming."
+            : "Discover amazing content creators streaming now"}
+        </p>
       </div>
 
-      <div className="flex flex-wrap gap-2" data-testid="category-filters">
-        {categories.map((cat) => (
-          <Button
-            key={cat}
-            variant={selectedCategory === cat ? "default" : "secondary"}
-            size="sm"
-            onClick={() => setSelectedCategory(cat)}
-            data-testid={`button-category-${cat.toLowerCase().replace(' ', '-')}`}
-          >
-            {cat}
-          </Button>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {filteredStreams.map((stream) => (
-          <StreamCard key={stream.id} {...stream} />
-        ))}
-      </div>
-
-      {filteredStreams.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-12">
-          <p className="text-lg text-muted-foreground">No streams found in this category</p>
+      {/* Trending Streams - Only show for All category */}
+      {selectedCategory === "All" && trendingStreams.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Flame className="h-6 w-6 text-orange-500" />
+            <h2 className="text-2xl font-bold">Trending Now</h2>
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {trendingStreams.map((stream) => (
+              <StreamCard 
+                key={stream.id} 
+                id={stream.id.toString()} 
+                thumbnailUrl={stream.thumbnailUrl}
+                isLive={stream.isLive}
+                viewerCount={stream.viewerCount}
+                streamerName={stream.streamerName}
+                streamerAvatar={stream.streamerAvatar}
+                streamTitle={stream.streamTitle}
+                category={stream.category}
+                streamerId={stream.userId}
+              />
+            ))}
+          </div>
         </div>
+      )}
+
+      {/* Category Filters */}
+      <div>
+        <h2 className="mb-3 text-xl font-semibold">Browse by Category</h2>
+        <div className="flex flex-wrap gap-2">
+          {categories.map((cat) => (
+            <Button
+              key={cat}
+              variant={selectedCategory === cat ? "default" : "secondary"}
+              size="sm"
+              onClick={() => setSelectedCategory(cat)}
+            >
+              {cat}
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      {/* All Streams */}
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <p className="text-lg text-muted-foreground">Loading streams...</p>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {streams.map((stream) => (
+              <StreamCard 
+                key={stream.id} 
+                id={stream.id.toString()} 
+                thumbnailUrl={stream.thumbnailUrl}
+                isLive={stream.isLive}
+                viewerCount={stream.viewerCount}
+                streamerName={stream.streamerName}
+                streamerAvatar={stream.streamerAvatar}
+                streamTitle={stream.streamTitle}
+                category={stream.category}
+                streamerId={stream.userId}
+              />
+            ))}
+          </div>
+
+          {streams.length === 0 && (
+            <Card className="p-12 text-center">
+              <p className="text-lg text-muted-foreground">
+                No streams found in this category
+              </p>
+            </Card>
+          )}
+        </>
       )}
     </div>
   );

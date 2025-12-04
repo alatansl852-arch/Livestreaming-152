@@ -10,11 +10,12 @@ declare module 'http' {
   }
 }
 app.use(express.json({
+  limit: '50mb',
   verify: (req, _res, buf) => {
     req.rawBody = buf;
   }
 }));
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ limit: '50mb', extended: false }));
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -71,11 +72,18 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || '5000', 10);
-  server.listen({
+  const listenOptions: { port: number; host: string; reusePort?: boolean } = {
     port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
+    host: "127.0.0.1",
+  };
+
+  // `reusePort` is not supported on some platforms (notably Windows).
+  // Only enable it when not running on Windows to avoid ENOTSUP errors.
+  if (process.platform !== "win32") {
+    listenOptions.reusePort = true;
+  }
+
+  server.listen(listenOptions, () => {
     log(`serving on port ${port}`);
   });
 })();
