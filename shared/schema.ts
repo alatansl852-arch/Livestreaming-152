@@ -2,9 +2,7 @@ import { mysqlTable, varchar, int, boolean, timestamp, text } from "drizzle-orm/
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// =====================================================
-// MAIN TABLES
-// =====================================================
+
 
 export const users = mysqlTable("users", {
   id: int("id").primaryKey().autoincrement(),
@@ -16,9 +14,7 @@ export const users = mysqlTable("users", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// =====================================================
-// CATEGORIZATION TABLES
-// =====================================================
+  
 
 export const viewers = mysqlTable("viewers", {
   id: int("id").primaryKey().autoincrement(),
@@ -37,9 +33,7 @@ export const streamers = mysqlTable("streamers", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// =====================================================
-// CONTENT TABLES
-// =====================================================
+
 
 export const streams = mysqlTable("streams", {
   id: int("id").primaryKey().autoincrement(),
@@ -81,9 +75,6 @@ export const streamRatings = mysqlTable("stream_ratings", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// =====================================================
-// INSERT SCHEMAS (for validation)
-// =====================================================
 
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
@@ -121,9 +112,7 @@ export const insertStreamRatingSchema = createInsertSchema(streamRatings).omit({
   createdAt: true,
 });
 
-// =====================================================
-// TYPES
-// =====================================================
+
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;

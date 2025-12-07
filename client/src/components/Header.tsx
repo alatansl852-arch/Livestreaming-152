@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { useAuth } from "@/hooks/useAuth"; // ✅ Changed from @/context/AuthContext
+import { useAuth } from "@/hooks/useAuth"; 
 import { LogOut, User, Menu } from "lucide-react";
 
 interface HeaderProps {

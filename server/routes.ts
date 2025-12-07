@@ -509,10 +509,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ============================================================
-  // RATING SYSTEM WITH LIMITS - ONE RATING PER USER PER STREAM
-  // ============================================================
-
+  
   // Check if user has rated a stream
   app.get("/api/streams/:id/rating-status", async (req, res) => {
     try {
@@ -689,9 +686,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ============================================================
-  // REPORTS SYSTEM
-  // ============================================================
 
   // Submit a report
   app.post("/api/reports", async (req, res) => {
